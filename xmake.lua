@@ -6,7 +6,14 @@ set_warnings("all")
 add_rules("plugin.compile_commands.autoupdate", {outputdir = "build"})
 add_rules("mode.releasedbg")
 
+includes("deps/libdatachannel.lua")
+
 add_requires("gtest", "libnyquist", "libsamplerate", "cpptrace", "uwebsockets")
+add_requires("libdatachannel", {
+    configs = {
+        shared = true
+    }
+})
 
 -- static link msvcrt
 set_runtimes("MT")
@@ -29,4 +36,4 @@ target("audivis-relay")
     set_kind("binary")
     add_files("src/client/**.cc")
     add_deps("parsec-vusb-api")
-    add_packages("libnyquist", "libsamplerate", "cpptrace", "uwebsockets")
+    add_packages("libnyquist", "libsamplerate", "cpptrace", "uwebsockets", "libdatachannel")
