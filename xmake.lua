@@ -6,7 +6,7 @@ set_warnings("all")
 add_rules("plugin.compile_commands.autoupdate", {outputdir = "build"})
 add_rules("mode.releasedbg")
 
-add_requires("gtest", "libnyquist", "libsamplerate")
+add_requires("gtest", "libnyquist", "libsamplerate", "cpptrace")
 
 -- static link msvcrt
 set_runtimes("MT")
@@ -29,4 +29,4 @@ target("audivis-relay")
     set_kind("binary")
     add_files("src/client/**.cc")
     add_deps("parsec-vusb-api")
-    add_packages("libnyquist", "libsamplerate")
+    add_packages("libnyquist", "libsamplerate", "cpptrace")

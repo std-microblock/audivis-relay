@@ -482,4 +482,13 @@ std::unique_ptr<VirtualUSBDevice> VirtualUSBHub::open_device(int device_id) {
   return std::unique_ptr<VirtualUSBDevice>(
       new VirtualUSBDevice(_handle, device_id));
 }
+bool VirtualUSBHub::device_exists(int device_id) {
+  auto dev = open_device(device_id);
+  try {
+    dev->configure_endpoints({0x81});
+  } catch (const std::exception &e) {
+    return false;
+  }
+  return true;
+}
 } // namespace parsec::vusb

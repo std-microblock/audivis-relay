@@ -80,6 +80,7 @@ public:
   std::unique_ptr<VirtualUSBDevice>
   create_device(const std::vector<uint8_t> &device_descriptor);
   std::unique_ptr<VirtualUSBDevice> open_device(int device_id);
+  bool device_exists(int device_id);
 
 private:
   void close();
