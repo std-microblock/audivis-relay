@@ -23,6 +23,7 @@ target("parsec-vusb-tests")
     add_files("src/parsec-vusb-tests/**.cc")
     add_deps("parsec-vusb-api")
     add_packages("gtest")
+    set_default(false)
 
 target("audivis-relay")
     set_kind("binary")
