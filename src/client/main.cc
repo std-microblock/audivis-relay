@@ -42,7 +42,8 @@ int main() {
 
     if (!device) {
       std::print("Failed to open or create virtual microphone device.\n");
-      throw std::runtime_error("Failed to open or create virtual microphone device.");
+      throw std::runtime_error(
+          "Failed to open or create virtual microphone device.");
     }
 
     device->configure_endpoints({0x81});
@@ -56,7 +57,8 @@ int main() {
     cli.set_connection_timeout(0, 300000); // 5 minutes
     std::shared_ptr<rtc::PeerConnection> pc;
 
-    rtc::Configuration config;
+    rtc::Configuration config{
+        .iceServers = {{"urls", {"stun:stun.l.google.com:19302"}}}};
     pc = std::make_shared<rtc::PeerConnection>(config);
 
     pc->onStateChange([](rtc::PeerConnection::State state) {
@@ -76,7 +78,8 @@ int main() {
           if (res->status == 200) {
             json create_res = json::parse(res->body);
             std::string session_id = create_res["id"];
-            std::println("URL: https://microblock.cc/audivis.html?id={}", session_id);
+            std::println("URL: https://microblock.cc/audivis.html?id={}",
+                         session_id);
 
             json wait_req = {{"id", session_id}};
             auto wait_res =
@@ -86,8 +89,7 @@ int main() {
                 json answer = json::parse(wait_res->body);
                 std::string sdp = answer["sdp"];
                 std::string type = answer["type"];
-                std::println("Received answer with type: {}", type,
-                             sdp);
+                std::println("Received answer with type: {}", type, sdp);
                 try {
                   rtc::Description remote_description(sdp, type);
                   pc->setRemoteDescription(remote_description);
@@ -96,14 +98,17 @@ int main() {
                             << std::endl;
                 }
               } else {
-                std::println("Failed to wait for answer: {}, {}", wait_res->status, wait_res->body);
+                std::println("Failed to wait for answer: {}, {}",
+                             wait_res->status, wait_res->body);
               }
             } else {
               auto err = wait_res.error();
-              std::println("Failed to wait for answer: {}", httplib::to_string(err));
+              std::println("Failed to wait for answer: {}",
+                           httplib::to_string(err));
             }
           } else {
-            std::println("Failed to create session: {}, {}", res->status, res->body);
+            std::println("Failed to create session: {}, {}", res->status,
+                         res->body);
           }
         } else {
           auto err = res.error();
