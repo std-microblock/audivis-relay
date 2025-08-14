@@ -5,7 +5,7 @@
   <h3>简洁高效的麦克风远程串流工具</h3>
 </div>
 
-[English](https://github.com/std-microblock/audivis-relay/new/master?filename=README.md#english-version)
+[English](./#english-version)
 
 ## 中文版
 
