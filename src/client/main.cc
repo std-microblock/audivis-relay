@@ -42,7 +42,7 @@ int main() {
 
     if (!device) {
       std::print("Failed to open or create virtual microphone device.\n");
-      return 1;
+      throw std::runtime_error("Failed to open or create virtual microphone device.");
     }
 
     device->configure_endpoints({0x81});
