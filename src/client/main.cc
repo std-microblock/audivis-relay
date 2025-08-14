@@ -1,19 +1,23 @@
+
 #include "parsec-vusb-api.h"
 #include <deque>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <print>
 #include <queue>
+#include <string>
 #include <thread>
-#include <uwebsockets/App.h>
 #include <vector>
 
+#include "cpptrace/from_current.hpp"
+#include "httplib.h"
+#include <nlohmann/json.hpp>
 #include <rtc/rtc.hpp>
 
+using json = nlohmann::json;
+
 // Structure to hold user data for WebSocket connections
-struct PerSocketData {
-  // We can add user-specific data here later, e.g., user ID
-};
 
 // Function to read a file into a string
 std::string readFile(const std::filesystem::path &path) {
@@ -26,95 +30,122 @@ std::string readFile(const std::filesystem::path &path) {
 }
 
 int main() {
-  // Initialize the virtual USB hub and device
-  parsec::vusb::VirtualUSBHub hub;
-  auto device =
-      hub.device_exists(1)
-          ? hub.open_device(1)
-          : hub.create_device(parsec::vusb::DefaultMicrophoneDescriptor);
+  CPPTRACE_TRY {
+    // Initialize the virtual USB hub and device
+    parsec::vusb::VirtualUSBHub hub;
 
-  if (!device) {
-    std::print("Failed to open or create virtual microphone device.\n");
-    return 1;
-  }
+    int orig_device_id = 1;
+    auto device =
+        hub.device_exists(orig_device_id)
+            ? hub.open_device(orig_device_id)
+            : hub.create_device(parsec::vusb::DefaultMicrophoneDescriptor);
 
-  device->configure_endpoints({0x81});
-  device->configure_endpoint_types({0x02});
-  device->plug_in();
-  std::println("Virtual microphone plugged in with DeviceID: {}",
-               device->device_id());
+    if (!device) {
+      std::print("Failed to open or create virtual microphone device.\n");
+      return 1;
+    }
 
-  // --- uWebSockets Server Implementation ---
+    device->configure_endpoints({0x81});
+    device->configure_endpoint_types({0x02});
+    device->plug_in();
+    std::println("Virtual microphone plugged in with DeviceID: {}",
+                 device->device_id());
 
-  // Path to the HTML file
-  const std::filesystem::path html_path = "src/client/index.html";
-  const std::string html_content = readFile(html_path);
+    // --- WebRTC Client Implementation ---
+    httplib::Client cli("http://audivis-signaling-server.microblock.cc");
+    cli.set_connection_timeout(0, 300000); // 5 minutes
+    std::shared_ptr<rtc::PeerConnection> pc;
 
-  if (html_content.empty()) {
-    std::println(stderr, "Error: Could not read {}", html_path.string());
-    return 1;
-  }
+    rtc::Configuration config;
+    pc = std::make_shared<rtc::PeerConnection>(config);
 
-  std::mutex audio_queue_mutex;
-  std::deque<uint8_t> audio_queue;
+    pc->onStateChange([](rtc::PeerConnection::State state) {
+      // std::cout << "PeerConnection state: " << state << std::endl;
+      // if (state == rtc::PeerConnection::State::Closed) {
+      //   std::cout << "PeerConnection is closed." << std::endl;
+      // }
+    });
 
-  std::thread audio_thread([&]() {
-    static constexpr auto SLICE_SIZE = 960;
-    std::vector<uint8_t> audio_data(SLICE_SIZE);
-    while (true) {
-      {
-        std::lock_guard<std::mutex> lock(audio_queue_mutex);
-        if (audio_queue.size() > SLICE_SIZE) {
-          std::copy_n(audio_queue.begin(), SLICE_SIZE, audio_data.begin());
+    pc->onGatheringStateChange([&](rtc::PeerConnection::GatheringState state) {
+      if (state == rtc::PeerConnection::GatheringState::Complete) {
+        auto description = pc->localDescription();
+        json offer = {{"type", description->typeString()},
+                      {"sdp", std::string(*description)}};
+        auto res = cli.Post("/create", offer.dump(), "application/json");
+        if (res) {
+          if (res->status == 200) {
+            json create_res = json::parse(res->body);
+            std::string session_id = create_res["id"];
+            std::println("URL: https://microblock.cc/audivis.html?id={}", session_id);
+
+            json wait_req = {{"id", session_id}};
+            auto wait_res =
+                cli.Post("/wait", wait_req.dump(), "application/json");
+            if (wait_res) {
+              if (wait_res->status == 200) {
+                json answer = json::parse(wait_res->body);
+                std::string sdp = answer["sdp"];
+                std::string type = answer["type"];
+                std::println("Received answer with type: {}", type,
+                             sdp);
+                try {
+                  rtc::Description remote_description(sdp, type);
+                  pc->setRemoteDescription(remote_description);
+                } catch (const std::exception &e) {
+                  std::cerr << "Error parsing answer: " << e.what()
+                            << std::endl;
+                }
+              } else {
+                std::println("Failed to wait for answer: {}, {}", wait_res->status, wait_res->body);
+              }
+            } else {
+              auto err = wait_res.error();
+              std::println("Failed to wait for answer: {}", httplib::to_string(err));
+            }
+          } else {
+            std::println("Failed to create session: {}, {}", res->status, res->body);
+          }
         } else {
-          continue;
+          auto err = res.error();
+          std::println("Failed to create session: {}", httplib::to_string(err));
         }
       }
+    });
 
-      if (device->submit_audio_data(audio_data)) {
-        std::lock_guard<std::mutex> lock(audio_queue_mutex);
-        audio_queue.erase(audio_queue.begin(), audio_queue.begin() + SLICE_SIZE);
+    auto dc = pc->createDataChannel("audio");
+
+    dc->onOpen([&]() { std::println("DataChannel opened."); });
+
+    std::deque<uint8_t> audioBuffer;
+    dc->onMessage([&](rtc::message_variant message) {
+      if (auto binary = std::get_if<rtc::binary>(&message)) {
+        std::vector<uint8_t> data;
+        data.reserve(binary->size());
+        for (const auto &byte : *binary) {
+          data.push_back(static_cast<uint8_t>(byte));
+        }
+        audioBuffer.insert(audioBuffer.end(), data.begin(), data.end());
+
+        while (audioBuffer.size() >= 960) {
+          std::vector<uint8_t> buffer(audioBuffer.begin(),
+                                      audioBuffer.begin() + 960);
+          if (device->submit_audio_data(buffer))
+            audioBuffer.erase(audioBuffer.begin(), audioBuffer.begin() + 960);
+        }
       }
+    });
 
-      std::this_thread::yield();
-    }
-  });
+    pc->setLocalDescription();
 
-  uWS::App()
-      .ws<PerSocketData>(
-          "/",
-          {/* Settings */
-           .compression = uWS::SHARED_COMPRESSOR,
-           .maxPayloadLength = 16 * 1024 * 1024,
-           .idleTimeout = 60,
-           /* Handlers */
-           .upgrade = nullptr,
-           .open =
-               [](auto *ws) {
-                 std::println("WebSocket connection established.");
-               },
-           .message =
-               [&](auto *ws, std::string_view message, uWS::OpCode opCode) {
-                 if (opCode == uWS::OpCode::BINARY) {
-                   std::lock_guard<std::mutex> lock(audio_queue_mutex);
-                   audio_queue.append_range(std::span<const uint8_t>(
-                       (uint8_t *)message.data(), message.size()));
-                 }
-               },
-           .close =
-               [](auto *ws, int code, std::string_view message) {
-                 std::println("WebSocket connection closed.");
-               }})
-      .get("/*",
-           [&html_content](auto *res, auto *req) { res->end(html_content); })
-      .listen("0.0.0.0", 9001,
-              [](auto *listen_socket) {
-                if (listen_socket) {
-                  std::println(
-                      "HTTP and WebSocket server listening on port 9001");
-                } else {
-                  std::println(stderr, "Failed to listen on port 9001");
-                }
-              })
-      .run();
+    // Keep the application running
+    std::this_thread::sleep_for(std::chrono::hours(24));
+  }
+  CPPTRACE_CATCH(std::exception & e) {
+    std::print("Error: {}\n", e.what());
+    cpptrace::from_current_exception().print();
+  }
+  catch (...) {
+    std::print("Unknown error occurred\n");
+    cpptrace::from_current_exception().print();
+  }
 }

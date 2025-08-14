@@ -8,7 +8,7 @@ add_rules("mode.releasedbg")
 
 includes("deps/libdatachannel.lua")
 
-add_requires("gtest", "libnyquist", "libsamplerate", "cpptrace", "uwebsockets")
+add_requires("gtest", "libnyquist", "libsamplerate", "cpptrace", "cpp-httplib", "nlohmann_json")
 add_requires("libdatachannel", {
     configs = {
         shared = true
@@ -36,4 +36,4 @@ target("audivis-relay")
     set_kind("binary")
     add_files("src/client/**.cc")
     add_deps("parsec-vusb-api")
-    add_packages("libnyquist", "libsamplerate", "cpptrace", "uwebsockets", "libdatachannel")
+    add_packages("libnyquist", "libsamplerate", "cpptrace", "libdatachannel", "cpp-httplib", "nlohmann_json")
