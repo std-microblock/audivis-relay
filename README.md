@@ -1,6 +1,9 @@
 
 <div align="center">
-  <img width="1133" height="675" alt="Audivis Relay" src="https://github.com/user-attachments/assets/bd05863d-55bf-408b-9d62-f462c7a9b73f" />
+  <div>
+    <img width="1133" height="675" alt="Audivis Relay" src="https://github.com/user-attachments/assets/bd05863d-55bf-408b-9d62-f462c7a9b73f" />
+    <img width="361" height="579" alt="Audivis Relay Client" src="https://github.com/user-attachments/assets/df68c6d7-81d3-401e-9854-a3460b953b01" />
+  </div>
   <h2>Audivis Relay</h2>
   <h3>简洁高效的麦克风远程串流工具</h3>
 </div>
