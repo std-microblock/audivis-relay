@@ -1,11 +1,12 @@
 
 <div align="center">
+  <img height="200" alt="image" src="https://github.com/user-attachments/assets/14a7b60b-192f-46e4-937a-46ec013f0999" />
+  <h2>Audivis Relay</h2>
+  <h3>简洁高效的麦克风远程串流工具</h3>
   <div>
     <img height="300" alt="Audivis Relay" src="https://github.com/user-attachments/assets/bd05863d-55bf-408b-9d62-f462c7a9b73f" />
     <img height="300" alt="image" src="https://github.com/user-attachments/assets/01d40f55-a8b2-43a6-b26e-cc1435bd3c7a" />
   </div>
-  <h2>Audivis Relay</h2>
-  <h3>简洁高效的麦克风远程串流工具</h3>
 </div>
 
 ## 中文版
@@ -63,3 +64,10 @@ Audivis Relay is a lightweight microphone streaming solution that transmits real
 4. **Start Streaming**
    - After successful connection, select "Audivis Stream Audio" as input
    - Use in any audio application
+
+
+---
+
+## Credits
+- Parsec - For VirtualUSB Driver.
+- @lipraty - Icon Design
