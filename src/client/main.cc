@@ -614,7 +614,7 @@ int main() {
     rt.root->height->reset_to(500);
     rt.show();
     rt.start_loop();
-    terminate();
+    TerminateProcess(GetCurrentProcess(), 0);
   }
   CPPTRACE_CATCH(std::exception & e) {
     std::print("Error: {}\n", e.what());
