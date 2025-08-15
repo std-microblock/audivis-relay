@@ -16,6 +16,8 @@
 #include <nlohmann/json.hpp>
 #include <rtc/rtc.hpp>
 
+#include "breeze_ui/ui.h"
+
 using json = nlohmann::json;
 
 // Structure to hold user data for WebSocket connections

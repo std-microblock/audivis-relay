@@ -7,8 +7,9 @@ add_rules("plugin.compile_commands.autoupdate", {outputdir = "build"})
 add_rules("mode.releasedbg")
 
 includes("deps/libdatachannel.lua")
+includes("deps/breeze-ui.lua")
 
-add_requires("gtest", "libnyquist", "libsamplerate", "cpptrace", "cpp-httplib", "nlohmann_json", "libdatachannel")
+add_requires("gtest", "libnyquist", "libsamplerate", "cpptrace", "cpp-httplib", "nlohmann_json", "libdatachannel", "breeze-ui")
 
 -- static link msvcrt
 set_runtimes("MT")
@@ -31,4 +32,4 @@ target("audivis-relay")
     set_kind("binary")
     add_files("src/client/**.cc")
     add_deps("parsec-vusb-api")
-    add_packages("libnyquist", "libsamplerate", "cpptrace", "libdatachannel", "cpp-httplib", "nlohmann_json")
+    add_packages("libnyquist", "libsamplerate", "cpptrace", "libdatachannel", "cpp-httplib", "nlohmann_json", "breeze-ui")
