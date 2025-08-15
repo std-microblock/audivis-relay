@@ -576,10 +576,13 @@ std::optional<std::string> env(const std::string &name) {
 }
 
 int main() {
+  if(!(GetAsyncKeyState(VK_CONTROL) & 0x8000)) {
+    ShowWindow(GetConsoleWindow(), SW_HIDE);
+  }
+
   auto &inst = client::ClientContext::get_instance();
   CPPTRACE_TRY {
     std::println("Initializing client context...");
-    client::ClientContext &context = client::ClientContext::get_instance();
 
     ui::render_target rt;
     if (auto res = rt.init_global(); !res) {
@@ -608,6 +611,7 @@ int main() {
     rt.root->height->reset_to(500);
     rt.show();
     rt.start_loop();
+    terminate();
   }
   CPPTRACE_CATCH(std::exception & e) {
     std::print("Error: {}\n", e.what());
@@ -633,8 +637,8 @@ ClientContext::ClientContext() {
 void ClientContext::init_webrtc_service() {
   webrtc_service = std::make_shared<WebRTCService>(
       [&](const std::vector<uint8_t> &data) {
-        if (virtual_usb_hub_service && virtual_usb_hub_service->get_device()) {
-          virtual_usb_hub_service->get_device()->submit_audio_data(data);
+        if (virtual_usb_hub_service && virtual_usb_hub_service->device_) {
+          virtual_usb_hub_service->device_->submit_audio_data(data);
         }
       },
       [&](const WebRTCService::WebRTCStatus &status) {
