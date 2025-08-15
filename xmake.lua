@@ -8,12 +8,7 @@ add_rules("mode.releasedbg")
 
 includes("deps/libdatachannel.lua")
 
-add_requires("gtest", "libnyquist", "libsamplerate", "cpptrace", "cpp-httplib", "nlohmann_json")
-add_requires("libdatachannel", {
-    configs = {
-        shared = true
-    }
-})
+add_requires("gtest", "libnyquist", "libsamplerate", "cpptrace", "cpp-httplib", "nlohmann_json", "libdatachannel")
 
 -- static link msvcrt
 set_runtimes("MT")
