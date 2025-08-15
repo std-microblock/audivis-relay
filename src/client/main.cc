@@ -539,6 +539,7 @@ struct page_error_widget : public ui::widget_flex {
           owner_rt->post_loop_thread_task([]() {
             client::ClientContext::get_instance()
                 .root_widget->switch_to_gathering_page();
+            Sleep(50);
             client::ClientContext::get_instance().init_webrtc_service();
           });
         }
