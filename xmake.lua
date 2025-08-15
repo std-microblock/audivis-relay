@@ -30,7 +30,7 @@ target("parsec-vusb-tests")
 
 target("audivis-relay")
     set_kind("binary")
-    add_files("src/client/**.cc")
+    add_files("src/client/**.cc", "src/client/app.manifest")
     set_encodings("utf-8")
     add_deps("parsec-vusb-api")
     add_packages("libnyquist", "libsamplerate", "cpptrace", "libdatachannel", "cpp-httplib", "nlohmann_json", "breeze-ui", "qr-code-generator-cpp")
