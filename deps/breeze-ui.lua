@@ -5,12 +5,12 @@ package("breeze-glfw")
 
 package("breeze-ui")
     add_urls("https://github.com/std-microblock/breeze-ui.git")
-    add_versions("2025.08.15", "f0afe3e1ebdd6fcef9c5cbf916ce67ec5bf43a75")
+    add_versions("20250815.4", "8d9fb98d1179f3bfe47343443cbc58d35e639d8b")
     add_deps("breeze-glfw", "nanovg", "glad", "nanosvg")
     add_configs("shared", {description = "Build shared library.", default = false, type = "boolean", readonly = true})
 
     if is_plat("windows") then
-        add_syslinks("dwmapi")
+        add_syslinks("dwmapi", "shcore")
     end
 
     on_install("windows", function (package)
