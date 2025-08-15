@@ -9,8 +9,8 @@ add_rules("mode.releasedbg")
 includes("deps/libdatachannel.lua")
 includes("deps/breeze-ui.lua")
 
-add_requires("gtest", "libnyquist", "libsamplerate", "cpptrace", "cpp-httplib", "nlohmann_json", "libdatachannel", "breeze-ui", "qr-code-generator-cpp", "yy-thunks")
-
+add_requires("gtest", "libnyquist", "libsamplerate", "cpptrace", "cpp-httplib", "nlohmann_json", "libdatachannel", "breeze-ui", "qr-code-generator-cpp")
+set_runtimes("MT")
 set_policy("build.optimization.lto", true)
 
 target("parsec-vusb-api")
