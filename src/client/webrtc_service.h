@@ -1,5 +1,5 @@
-#ifndef CLIENT_WEBRTC_SERVICE_H
-#define CLIENT_WEBRTC_SERVICE_H
+#ifndef CLIENT_webrtc_serviceH
+#define CLIENT_webrtc_serviceH
 
 #include "httplib.h"
 #include "rtc/configuration.hpp"
@@ -13,8 +13,7 @@
 
 namespace client {
 
-class WebRTCService {
-public:
+struct WebRTCService {
     enum class ConnectionState {
         Gathering,
         WaitingConnection,
@@ -37,7 +36,6 @@ public:
     void start_signaling();
     inline std::string session_id() const { return session_id_; }
 
-private:
     httplib::Client cli_;
     std::shared_ptr<rtc::PeerConnection> pc_;
     std::shared_ptr<rtc::DataChannel> dc_;
@@ -53,4 +51,4 @@ private:
 
 } // namespace client
 
-#endif // CLIENT_WEBRTC_SERVICE_H
+#endif // CLIENT_webrtc_serviceH

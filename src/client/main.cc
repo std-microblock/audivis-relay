@@ -10,6 +10,9 @@
 #include "breeze_ui/ui.h"
 #include "cpptrace/from_current.hpp"
 
+#include "qrcodegen.hpp"
+using namespace qrcodegen;
+
 inline constexpr NVGcolor parse_color(std::string_view str) {
   // allowed:
   // #RRGGBB
@@ -84,6 +87,49 @@ static void copy_to_clipboard(const std::string &text) {
   CloseClipboard();
 }
 
+struct page_error_widget;
+struct page_connected_widget;
+struct page_connect_widget;
+struct page_gathering_widget;
+
+struct audivis_widget : public ui::widget_flex {
+  audivis_widget() {
+    auto_size = false;
+    justify_content = ui::widget_flex::justify::center;
+    align_items = ui::widget_flex::align::center;
+  }
+
+  void render(ui::nanovg_context vg) override {
+    vg.fillColor(parse_color("#1C1B1F"));
+    vg.fillRect(0, 0, *width, *height);
+    ui::widget_flex::render(vg);
+  }
+
+  void switch_to_connect_page(std::string id) {
+    children.clear();
+    children_dirty = true;
+    emplace_child<page_connect_widget>(std::move(id));
+  }
+
+  void switch_to_gathering_page() {
+    children.clear();
+    children_dirty = true;
+    emplace_child<page_gathering_widget>();
+  }
+
+  void switch_to_connected_page() {
+    children.clear();
+    children_dirty = true;
+    emplace_child<page_connected_widget>();
+  }
+
+  void switch_to_error_page(std::string reason) {
+    children.clear();
+    children_dirty = true;
+    emplace_child<page_error_widget>(std::move(reason));
+  }
+};
+
 struct page_gathering_widget : public ui::widget_flex {
   page_gathering_widget() {
     align_items = ui::widget_flex::align::center;
@@ -141,29 +187,47 @@ struct page_gathering_widget : public ui::widget_flex {
 };
 
 struct page_connect_widget : public ui::widget_flex {
-  std::string id = "114514";
-  page_connect_widget() {
+  std::string id;
+  page_connect_widget(std::string idx) : id(std::move(idx)) {
     align_items = ui::widget_flex::align::center;
     justify_content = ui::widget_flex::justify::center;
     gap = 10;
 
     struct qrcode_widget : public ui::widget {
-      std::string &id;
-      qrcode_widget(std::string &id) : id(id) {
+      qrcodegen::QrCode qr;
+
+      qrcode_widget(std::string &id)
+          : qr(qrcodegen::QrCode::encodeText(("https://microblock.cc/audivis.html?id="+id).c_str(),
+                                             qrcodegen::QrCode::Ecc::HIGH)) {
         width->reset_to(200);
         height->reset_to(200);
       }
 
       void render(ui::nanovg_context vg) override {
+        auto s = vg.transaction();
         vg.fillColor(parse_color("#49454F"));
         vg.fillRoundedRect(*x, *y, *width, *height, 16);
 
         constexpr auto padding = 6;
 
-        vg.strokeColor(parse_color("#938F99"));
-        vg.fillColor(parse_color("#2E2E2E"));
+        vg.fillColor(parse_color("#1C1B1F"));
         vg.fillRoundedRect(*x + padding, *y + padding, *width - padding * 2,
                            *height - padding * 2, 10);
+
+        auto size = qr.getSize();
+        auto qrcodeSize = 200 - padding * 2 - 10;
+        auto scale = qrcodeSize / static_cast<float>(size);
+        for (int dy = 0; dy < size; dy++) {
+          for (int dx = 0; dx < size; dx++) {
+            if (qr.getModule(dx, dy)) {
+              vg.fillColor(parse_color("#D0BCFF"));
+              vg.fillRect(5 + dx * scale + padding + *x,
+                          5 + dy * scale + padding + *y, scale, scale);
+            }
+          }
+        }
+
+        vg.strokeColor(parse_color("#938F99"));
         vg.strokeWidth(1);
         vg.strokeRoundedRect(*x + padding, *y + padding, *width - padding * 2,
                              *height - padding * 2, 10);
@@ -225,7 +289,7 @@ struct page_connect_widget : public ui::widget_flex {
           pasted = true;
           needs_repaint = true;
           copy_to_clipboard(
-              std::format("http://microblock.cc/audivis.html?id={}", id));
+              std::format("https://microblock.cc/audivis.html?id={}", id));
         }
 
         ui::widget::update(ctx);
@@ -321,104 +385,82 @@ struct page_connected_widget : public ui::widget_flex {
           lbl_txt->text = label;
           lbl_txt->font_size = 12;
           lbl_txt->color.animate_to(0.7f, 0.7f, 0.7f, 1);
+
+          return val_txt;
         };
 
-        create_stat("128ms", "延迟");
+        rtt_text = create_stat("-ms", "延迟");
+
         create_stat("48kHz", "采样率");
         create_stat("16-bit", "位深");
+      }
+
+      std::shared_ptr<ui::text_widget> rtt_text;
+
+      size_t last_update_rtt = 0;
+      void update(ui::update_context &ctx) override {
+        auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+        if (last_update_rtt + 1000000000 < now) {
+          last_update_rtt = now;
+          rtt_text->text =
+              std::format("{}ms", client::ClientContext::get_instance()
+                                      .webrtc_service->pc_->rtt()
+                                      ->count());
+        }
+
+        ui::widget_flex::update(ctx);
       }
     };
 
     emplace_child<stats_widget>();
 
-    struct button_group : public ui::widget_flex {
-      button_group() {
-        gap = 15;
-        horizontal = true;
+    struct disconnect_button : public ui::widget {
+      ui::sp_anim_float hover_prg = anim_float();
 
-        struct pause_button : public ui::widget {
-          ui::sp_anim_float hover_prg = anim_float();
+      disconnect_button() {
+        width->reset_to(100);
+        height->reset_to(36);
 
-          pause_button() {
-            width->reset_to(100);
-            height->reset_to(36);
+        hover_prg->set_duration(150);
+        hover_prg->set_easing(ui::easing_type::ease_in_out);
+      }
 
-            hover_prg->set_duration(150);
-            hover_prg->set_easing(ui::easing_type::ease_in_out);
-          }
+      void render(ui::nanovg_context vg) override {
+        NVGcolor bg_color = nvgLerpRGBA(parse_color("#6750A4"),
+                                        parse_color("#7C4DFF"), *hover_prg);
+        vg.fillColor(bg_color);
+        vg.fillRoundedRect(*x, *y, *width, *height, 18);
 
-          void render(ui::nanovg_context vg) override {
-            NVGcolor bg_color = nvgLerpRGBA(parse_color("#49454F"),
-                                            parse_color("#5A5662"), *hover_prg);
-            vg.fillColor(bg_color);
-            vg.fillRoundedRect(*x, *y, *width, *height, 18);
+        vg.fontSize(14);
+        vg.fontFace("main");
+        vg.fillColor(parse_color("#FFFFFF"));
+        vg.textAlign(NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+        vg.text(*x + *width / 2, *y + *height / 2, "断开连接", nullptr);
+      }
 
-            vg.fontSize(14);
-            vg.fontFace("main");
-            vg.fillColor(parse_color("#FFFFFF"));
-            vg.textAlign(NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-            vg.text(*x + *width / 2, *y + *height / 2, "暂停串流", nullptr);
-          }
+      void update(ui::update_context &ctx) override {
+        hover_prg->animate_to(ctx.hovered(this) ? 1.0f : 0.0f);
 
-          void update(ui::update_context &ctx) override {
-            hover_prg->animate_to(ctx.hovered(this) ? 1.0f : 0.0f);
-
-            if (ctx.mouse_clicked_on(this)) {
-              // Handle pause logic here
-            }
-
-            ui::widget::update(ctx);
-          }
-        };
-
-        struct disconnect_button : public ui::widget {
-          ui::sp_anim_float hover_prg = anim_float();
-
-          disconnect_button() {
-            width->reset_to(100);
-            height->reset_to(36);
-
-            hover_prg->set_duration(150);
-            hover_prg->set_easing(ui::easing_type::ease_in_out);
-          }
-
-          void render(ui::nanovg_context vg) override {
-            NVGcolor bg_color = nvgLerpRGBA(parse_color("#6750A4"),
-                                            parse_color("#7C4DFF"), *hover_prg);
-            vg.fillColor(bg_color);
-            vg.fillRoundedRect(*x, *y, *width, *height, 18);
-
-            vg.fontSize(14);
-            vg.fontFace("main");
-            vg.fillColor(parse_color("#FFFFFF"));
-            vg.textAlign(NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-            vg.text(*x + *width / 2, *y + *height / 2, "断开连接", nullptr);
-          }
-
-          void update(ui::update_context &ctx) override {
-            hover_prg->animate_to(ctx.hovered(this) ? 1.0f : 0.0f);
-
-            if (ctx.mouse_clicked_on(this)) {
-              // Handle disconnect logic here
-            }
-
-            ui::widget::update(ctx);
-          }
-        };
-
-        emplace_child<pause_button>();
-        emplace_child<disconnect_button>();
+        ui::widget::update(ctx);
+        if (ctx.mouse_clicked_on(this)) {
+          owner_rt->post_loop_thread_task([]() {
+            client::ClientContext::get_instance()
+                .root_widget->switch_to_gathering_page();
+            client::ClientContext::get_instance().init_webrtc_service();
+          });
+        }
       }
     };
 
-    emplace_child<button_group>();
+    emplace_child<disconnect_button>();
   }
 };
 
 struct page_error_widget : public ui::widget_flex {
-  std::string error_message = "连接失败";
+  std::string error_message;
 
-  page_error_widget() {
+  page_error_widget(std::string error_message)
+      : error_message(std::move(error_message)) {
     align_items = ui::widget_flex::align::center;
     justify_content = ui::widget_flex::justify::center;
     gap = 25;
@@ -481,8 +523,7 @@ struct page_error_widget : public ui::widget_flex {
         vg.fontFace("main");
         vg.fillColor(parse_color("#FFFFFF"));
         vg.textAlign(NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-        vg.text(*x + *width / 2, *y + *height / 2, "重新连接",
-                nullptr);
+        vg.text(*x + *width / 2, *y + *height / 2, "重新连接", nullptr);
       }
 
       void update(ui::update_context &ctx) override {
@@ -493,7 +534,11 @@ struct page_error_widget : public ui::widget_flex {
         active_prg->animate_to(pressed ? 1.0f : 0.0f);
 
         if (ctx.mouse_clicked_on(this)) {
-          // Handle retry logic here
+          owner_rt->post_loop_thread_task([]() {
+            client::ClientContext::get_instance()
+                .root_widget->switch_to_gathering_page();
+            client::ClientContext::get_instance().init_webrtc_service();
+          });
         }
 
         ui::widget::update(ctx);
@@ -501,23 +546,6 @@ struct page_error_widget : public ui::widget_flex {
     };
 
     emplace_child<retry_button>();
-  }
-};
-
-struct audivis_widget : public ui::widget_flex {
-  audivis_widget() {
-    auto_size = false;
-    justify_content = ui::widget_flex::justify::center;
-    align_items = ui::widget_flex::align::center;
-  }
-
-  std::shared_ptr<page_error_widget> connect_page =
-      emplace_child<page_error_widget>();
-
-  void render(ui::nanovg_context vg) override {
-    vg.fillColor(parse_color("#1C1B1F"));
-    vg.fillRect(0, 0, *width, *height);
-    ui::widget_flex::render(vg);
   }
 };
 
@@ -546,12 +574,10 @@ std::optional<std::string> env(const std::string &name) {
 }
 
 int main() {
+  auto &inst = client::ClientContext::get_instance();
   CPPTRACE_TRY {
     std::println("Initializing client context...");
     client::ClientContext &context = client::ClientContext::get_instance();
-
-    std::println("Gathering, please wait...");
-    context.get_webrtc_service()->start_signaling();
 
     ui::render_target rt;
     if (auto res = rt.init_global(); !res) {
@@ -568,7 +594,10 @@ int main() {
     nvgCreateFont(rt.nvg, "main", (font / "msyh.ttc").string().c_str());
     nvgCreateFont(rt.nvg, "mono", (font / "consola.ttf").string().c_str());
 
-    rt.root = std::make_shared<audivis_widget>();
+    inst.root_widget = std::make_shared<audivis_widget>();
+    rt.root = inst.root_widget;
+    inst.init_webrtc_service();
+    inst.webrtc_service->start_signaling();
     rt.root->width->reset_to(320);
     rt.root->height->reset_to(500);
     rt.show();
@@ -583,3 +612,41 @@ int main() {
     cpptrace::from_current_exception().print();
   }
 }
+
+namespace client {
+
+ClientContext &ClientContext::get_instance() {
+  static ClientContext instance;
+  return instance;
+}
+
+ClientContext::ClientContext() {
+  virtual_usb_hub_service = std::make_shared<VirtualUSBHubService>();
+}
+
+void ClientContext::init_webrtc_service() {
+  webrtc_service = std::make_shared<WebRTCService>(
+      [&](const std::vector<uint8_t> &data) {
+        if (virtual_usb_hub_service && virtual_usb_hub_service->get_device()) {
+          virtual_usb_hub_service->get_device()->submit_audio_data(data);
+        }
+      },
+      [&](const WebRTCService::WebRTCStatus &status) {
+        if (status.state == WebRTCService::ConnectionState::Gathering) {
+          root_widget->switch_to_gathering_page();
+        } else if (status.state ==
+                   WebRTCService::ConnectionState::WaitingConnection) {
+          root_widget->switch_to_connect_page(status.session_id);
+        } else if (status.state == WebRTCService::ConnectionState::Connected) {
+          root_widget->switch_to_connected_page();
+        } else if (status.state == WebRTCService::ConnectionState::Failed) {
+          root_widget->switch_to_error_page("WebRTC 连接失败");
+        } else if (status.state ==
+                   WebRTCService::ConnectionState::Disconnected) {
+          root_widget->switch_to_gathering_page();
+          init_webrtc_service();
+        }
+      });
+}
+
+} // namespace client

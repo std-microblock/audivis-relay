@@ -9,7 +9,7 @@ add_rules("mode.releasedbg")
 includes("deps/libdatachannel.lua")
 includes("deps/breeze-ui.lua")
 
-add_requires("gtest", "libnyquist", "libsamplerate", "cpptrace", "cpp-httplib", "nlohmann_json", "libdatachannel", "breeze-ui")
+add_requires("gtest", "libnyquist", "libsamplerate", "cpptrace", "cpp-httplib", "nlohmann_json", "libdatachannel", "breeze-ui", "qr-code-generator-cpp")
 
 -- static link msvcrt
 set_runtimes("MT")
@@ -33,4 +33,4 @@ target("audivis-relay")
     add_files("src/client/**.cc")
     set_encodings("utf-8")
     add_deps("parsec-vusb-api")
-    add_packages("libnyquist", "libsamplerate", "cpptrace", "libdatachannel", "cpp-httplib", "nlohmann_json", "breeze-ui")
+    add_packages("libnyquist", "libsamplerate", "cpptrace", "libdatachannel", "cpp-httplib", "nlohmann_json", "breeze-ui", "qr-code-generator-cpp")

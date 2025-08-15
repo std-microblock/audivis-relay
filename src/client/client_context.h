@@ -3,28 +3,23 @@
 #include "webrtc_service.h"
 #include <memory>
 
+struct audivis_widget;
+
 namespace client {
 
-class ClientContext {
-public:
+struct ClientContext {
   static ClientContext &get_instance();
 
-  // Delete copy constructor and assignment operator to prevent copying
   ClientContext(const ClientContext &) = delete;
   ClientContext &operator=(const ClientContext &) = delete;
 
-  std::shared_ptr<VirtualUSBHubService> get_virtual_usb_hub_service() const {
-    return virtual_usb_hub_service_;
-  }
 
-  std::shared_ptr<WebRTCService> get_webrtc_service() const {
-    return webrtc_service_;
-  }
+  void init_webrtc_service();
 
-private:
   ClientContext(); // Private constructor for singleton
-  std::shared_ptr<VirtualUSBHubService> virtual_usb_hub_service_;
-  std::shared_ptr<WebRTCService> webrtc_service_;
+  std::shared_ptr<VirtualUSBHubService> virtual_usb_hub_service;
+  std::shared_ptr<WebRTCService> webrtc_service;
+  std::shared_ptr<audivis_widget> root_widget;
 };
 
 } // namespace client
