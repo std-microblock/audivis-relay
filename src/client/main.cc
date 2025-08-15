@@ -12,6 +12,7 @@
 
 #include "cpptrace/from_current.hpp"
 #include "httplib.h"
+#include "rtc/configuration.hpp"
 #include <nlohmann/json.hpp>
 #include <rtc/rtc.hpp>
 
@@ -52,13 +53,16 @@ int main() {
     std::println("Virtual microphone plugged in with DeviceID: {}",
                  device->device_id());
 
+    std::println("Gathering, please wait...");
+
     // --- WebRTC Client Implementation ---
     httplib::Client cli("http://audivis-signaling-server.microblock.cc");
     cli.set_connection_timeout(0, 300000); // 5 minutes
     std::shared_ptr<rtc::PeerConnection> pc;
 
     rtc::Configuration config{
-        .iceServers = {{"urls", {"stun:stun.l.google.com:19302"}}}};
+        // .iceServers = {rtc::IceServer{"stun.l.google.com", 19302}}
+      };
     pc = std::make_shared<rtc::PeerConnection>(config);
 
     pc->onStateChange([](rtc::PeerConnection::State state) {
@@ -73,6 +77,7 @@ int main() {
         auto description = pc->localDescription();
         json offer = {{"type", description->typeString()},
                       {"sdp", std::string(*description)}};
+        std::println("Creating offer...");
         auto res = cli.Post("/create", offer.dump(), "application/json");
         if (res) {
           if (res->status == 200) {
