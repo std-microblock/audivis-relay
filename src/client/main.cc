@@ -537,11 +537,12 @@ struct page_error_widget : public ui::widget_flex {
 
         if (ctx.mouse_clicked_on(this)) {
           owner_rt->post_loop_thread_task([]() {
+            client::ClientContext::get_instance().webrtc_service = nullptr;
             client::ClientContext::get_instance()
                 .root_widget->switch_to_gathering_page();
             Sleep(50);
             client::ClientContext::get_instance().init_webrtc_service();
-          });
+          }, true);
         }
 
         ui::widget::update(ctx);
@@ -577,7 +578,7 @@ std::optional<std::string> env(const std::string &name) {
 }
 
 int main() {
-  if(!(GetAsyncKeyState(VK_CONTROL) & 0x8000)) {
+  if (!(GetAsyncKeyState(VK_CONTROL) & 0x8000)) {
     ShowWindow(GetConsoleWindow(), SW_HIDE);
   }
 
@@ -602,6 +603,7 @@ int main() {
 
     inst.root_widget = std::make_shared<audivis_widget>();
     rt.root = inst.root_widget;
+    inst.root_widget->owner_rt = &rt;
     if (!parsec::vusb::VirtualUSBHub::is_driver_installed()) {
       inst.root_widget->switch_to_error_page("虚拟 USB 驱动未安装");
     } else {
@@ -643,20 +645,22 @@ void ClientContext::init_webrtc_service() {
         }
       },
       [&](const WebRTCService::WebRTCStatus &status) {
-        if (status.state == WebRTCService::ConnectionState::Gathering) {
-          root_widget->switch_to_gathering_page();
-        } else if (status.state ==
-                   WebRTCService::ConnectionState::WaitingConnection) {
-          root_widget->switch_to_connect_page(status.session_id);
-        } else if (status.state == WebRTCService::ConnectionState::Connected) {
-          root_widget->switch_to_connected_page();
-        } else if (status.state == WebRTCService::ConnectionState::Failed) {
-          root_widget->switch_to_error_page("WebRTC 连接失败");
-        } else if (status.state ==
-                   WebRTCService::ConnectionState::Disconnected) {
-          root_widget->switch_to_gathering_page();
-          init_webrtc_service();
-        }
+        root_widget->owner_rt->post_loop_thread_task([this, status]() {
+          if (status.state == WebRTCService::ConnectionState::Gathering) {
+            root_widget->switch_to_gathering_page();
+          } else if (status.state ==
+                     WebRTCService::ConnectionState::WaitingConnection) {
+            root_widget->switch_to_connect_page(status.session_id);
+          } else if (status.state ==
+                     WebRTCService::ConnectionState::Connected) {
+            root_widget->switch_to_connected_page();
+          } else if (status.state == WebRTCService::ConnectionState::Failed) {
+            root_widget->switch_to_error_page("WebRTC 连接失败");
+          } else if (status.state ==
+                     WebRTCService::ConnectionState::Disconnected) {
+            root_widget->switch_to_error_page("连接已断开");
+          }
+        });
       });
 }
 
