@@ -81,6 +81,7 @@ public:
   create_device(const std::vector<uint8_t> &device_descriptor);
   std::unique_ptr<VirtualUSBDevice> open_device(int device_id);
   bool device_exists(int device_id);
+  static bool is_driver_installed();
 
 private:
   void close();

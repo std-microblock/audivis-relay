@@ -10,6 +10,7 @@
 #include "breeze_ui/ui.h"
 #include "cpptrace/from_current.hpp"
 
+#include "parsec-vusb-api.h"
 #include "qrcodegen.hpp"
 using namespace qrcodegen;
 
@@ -197,8 +198,9 @@ struct page_connect_widget : public ui::widget_flex {
       qrcodegen::QrCode qr;
 
       qrcode_widget(std::string &id)
-          : qr(qrcodegen::QrCode::encodeText(("https://microblock.cc/audivis.html?id="+id).c_str(),
-                                             qrcodegen::QrCode::Ecc::HIGH)) {
+          : qr(qrcodegen::QrCode::encodeText(
+                ("https://microblock.cc/audivis.html?id=" + id).c_str(),
+                qrcodegen::QrCode::Ecc::HIGH)) {
         width->reset_to(200);
         height->reset_to(200);
       }
@@ -596,8 +598,12 @@ int main() {
 
     inst.root_widget = std::make_shared<audivis_widget>();
     rt.root = inst.root_widget;
-    inst.init_webrtc_service();
-    inst.webrtc_service->start_signaling();
+    if (!parsec::vusb::VirtualUSBHub::is_driver_installed()) {
+      inst.root_widget->switch_to_error_page("虚拟 USB 驱动未安装");
+    } else {
+      inst.init_webrtc_service();
+      inst.webrtc_service->start_signaling();
+    }
     rt.root->width->reset_to(320);
     rt.root->height->reset_to(500);
     rt.show();

@@ -491,4 +491,7 @@ bool VirtualUSBHub::device_exists(int device_id) {
   }
   return true;
 }
+bool VirtualUSBHub::is_driver_installed() {
+  return OpenDeviceHandle(&VUSB_ADAPTER_GUID) != INVALID_HANDLE_VALUE;
+}
 } // namespace parsec::vusb
