@@ -6,10 +6,8 @@ using json = nlohmann::json;
 
 namespace client {
 
-WebRTCService::WebRTCService(AudioDataCallback audio_data_callback,
-                             StatusCallback status_callback)
+WebRTCService::WebRTCService(StatusCallback status_callback)
     : cli_("http://audivis-signaling-server.microblock.cc"),
-      audio_data_callback_(std::move(audio_data_callback)),
       status_callback_(std::move(status_callback)) {
   cli_.set_connection_timeout(0, 300000); // 5 minutes
   setup_peer_connection();
@@ -109,18 +107,8 @@ void WebRTCService::setup_data_channel() {
       for (const auto &byte : *binary) {
         data.push_back(static_cast<uint8_t>(byte));
       }
+      std::lock_guard<std::mutex> lock(audioBufferMutex_);
       audioBuffer_.insert(audioBuffer_.end(), data.begin(), data.end());
-
-      std::println("Received audio data, buffer size: {}", audioBuffer_.size());
-      while (audioBuffer_.size() >= 960) {
-        std::vector<uint8_t> buffer(audioBuffer_.begin(),
-                                    audioBuffer_.begin() + 960);
-        if (audio_data_callback_ && audio_data_callback_(buffer)) {
-          audioBuffer_.erase(audioBuffer_.begin(), audioBuffer_.begin() + 960);
-        }
-      }
-      std::println("Processed audio data, remaining buffer size: {}",
-                   audioBuffer_.size());
     }
   });
 }

@@ -20,6 +20,8 @@ struct ClientContext {
   std::shared_ptr<VirtualUSBHubService> virtual_usb_hub_service;
   std::shared_ptr<WebRTCService> webrtc_service;
   std::shared_ptr<audivis_widget> root_widget;
+
+  std::optional<std::thread> audio_thread;
 };
 
 } // namespace client

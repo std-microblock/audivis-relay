@@ -649,13 +649,6 @@ ClientContext::ClientContext() {
 
 void ClientContext::init_webrtc_service() {
   webrtc_service = std::make_shared<WebRTCService>(
-      [&](const std::vector<uint8_t> &data) {
-        if (virtual_usb_hub_service && virtual_usb_hub_service->device_) {
-          return virtual_usb_hub_service->device_->submit_audio_data(data);
-        }
-
-        return false;
-      },
       [&](const WebRTCService::WebRTCStatus &status) {
         root_widget->owner_rt->post_loop_thread_task([this, status]() {
           if (status.state == WebRTCService::ConnectionState::Gathering) {
@@ -674,6 +667,34 @@ void ClientContext::init_webrtc_service() {
           }
         });
       });
+
+  if (!audio_thread) {
+    audio_thread.emplace([&]() {
+      while (true) {
+        std::this_thread::yield();
+        std::unique_lock<std::mutex> lock(webrtc_service->audioBufferMutex_);
+        while (webrtc_service->audioBuffer_.size() >= 960) {
+          std::vector<uint8_t> buffer(webrtc_service->audioBuffer_.begin(),
+                                      webrtc_service->audioBuffer_.begin() +
+                                          960);
+          if (virtual_usb_hub_service && virtual_usb_hub_service->device_) {
+            try {
+              if (virtual_usb_hub_service->device_->submit_audio_data(buffer)) {
+                webrtc_service->audioBuffer_.erase(
+                    webrtc_service->audioBuffer_.begin(),
+                    webrtc_service->audioBuffer_.begin() + 960);
+              }
+            } catch (const std::exception &e) {
+              std::cerr << "Error submitting audio data: " << e.what()
+                        << std::endl;
+              lock.unlock();
+              break;
+            }
+          }
+        }
+      }
+    });
+  }
 }
 
 } // namespace client

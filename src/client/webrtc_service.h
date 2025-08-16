@@ -27,10 +27,9 @@ struct WebRTCService {
         std::string session_id;
     };
 
-    using AudioDataCallback = std::function<bool(const std::vector<uint8_t>&)>;
     using StatusCallback = std::function<void(const WebRTCStatus&)>;
 
-    WebRTCService(AudioDataCallback audio_data_callback, StatusCallback status_callback);
+    WebRTCService(StatusCallback status_callback);
     ~WebRTCService();
 
     void start_signaling();
@@ -40,7 +39,7 @@ struct WebRTCService {
     std::shared_ptr<rtc::PeerConnection> pc_;
     std::shared_ptr<rtc::DataChannel> dc_;
     std::deque<uint8_t> audioBuffer_;
-    AudioDataCallback audio_data_callback_;
+    std::mutex audioBufferMutex_;
     StatusCallback status_callback_;
     std::string session_id_;
 
