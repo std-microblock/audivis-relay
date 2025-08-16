@@ -651,8 +651,10 @@ void ClientContext::init_webrtc_service() {
   webrtc_service = std::make_shared<WebRTCService>(
       [&](const std::vector<uint8_t> &data) {
         if (virtual_usb_hub_service && virtual_usb_hub_service->device_) {
-          virtual_usb_hub_service->device_->submit_audio_data(data);
+          return virtual_usb_hub_service->device_->submit_audio_data(data);
         }
+
+        return false;
       },
       [&](const WebRTCService::WebRTCStatus &status) {
         root_widget->owner_rt->post_loop_thread_task([this, status]() {

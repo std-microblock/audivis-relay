@@ -27,7 +27,7 @@ struct WebRTCService {
         std::string session_id;
     };
 
-    using AudioDataCallback = std::function<void(const std::vector<uint8_t>&)>;
+    using AudioDataCallback = std::function<bool(const std::vector<uint8_t>&)>;
     using StatusCallback = std::function<void(const WebRTCStatus&)>;
 
     WebRTCService(AudioDataCallback audio_data_callback, StatusCallback status_callback);
