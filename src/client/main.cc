@@ -536,13 +536,15 @@ struct page_error_widget : public ui::widget_flex {
         active_prg->animate_to(pressed ? 1.0f : 0.0f);
 
         if (ctx.mouse_clicked_on(this)) {
-          owner_rt->post_loop_thread_task([]() {
-            client::ClientContext::get_instance().webrtc_service = nullptr;
-            client::ClientContext::get_instance()
-                .root_widget->switch_to_gathering_page();
-            Sleep(50);
-            client::ClientContext::get_instance().init_webrtc_service();
-          }, true);
+          owner_rt->post_loop_thread_task(
+              []() {
+                client::ClientContext::get_instance().webrtc_service = nullptr;
+                client::ClientContext::get_instance()
+                    .root_widget->switch_to_gathering_page();
+                Sleep(50);
+                client::ClientContext::get_instance().init_webrtc_service();
+              },
+              true);
         }
 
         ui::widget::update(ctx);
@@ -613,6 +615,14 @@ int main() {
     rt.root->width->reset_to(320);
     rt.root->height->reset_to(500);
     rt.show();
+
+    auto hWnd = (HWND)rt.hwnd();
+    LONG_PTR style = GetWindowLongPtr(hWnd, GWL_EXSTYLE);
+    style &= ~(WS_EX_TOOLWINDOW | WS_EX_TOPMOST);
+    SetWindowLongPtr(hWnd, GWL_EXSTYLE, style);
+    SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
+
     rt.start_loop();
     TerminateProcess(GetCurrentProcess(), 0);
   }
