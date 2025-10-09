@@ -84,8 +84,10 @@ static void vusb_ioctl_in_out(HANDLE handle, DWORD code,
 
   if (!GetOverlappedResult(handle, &overlapped, &bytes_returned, TRUE)) {
     DWORD error = GetLastError();
-    CloseHandle(overlapped.hEvent);
-    throw VUSBError("GetOverlappedResult failed.", error);
+    if (error != ERROR_NOT_READY) {
+      CloseHandle(overlapped.hEvent);
+      throw VUSBError("GetOverlappedResult failed.", error);
+    }
   }
 
   CloseHandle(overlapped.hEvent);
@@ -456,9 +458,12 @@ bool VirtualUSBDevice::submit_audio_data(const std::vector<uint8_t> &data) {
     }
 
     if (!GetOverlappedResult(_hub_handle, &overlapped, &bytes_returned, TRUE)) {
-      CloseHandle(overlapped.hEvent);
-      throw VUSBError("Submit audio GetOverlappedResult failed.",
-                      GetLastError());
+      DWORD error = GetLastError();
+      if (error != ERROR_NOT_READY) {
+        CloseHandle(overlapped.hEvent);
+        throw VUSBError("Submit audio GetOverlappedResult failed.",
+                        GetLastError());
+      }
     }
     CloseHandle(overlapped.hEvent);
 
