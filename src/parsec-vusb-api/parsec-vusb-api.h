@@ -100,6 +100,7 @@ public:
   void configure_endpoint_types(const std::vector<int32_t> &endpointTypes);
   void plug_in();
   void unplug();
+  void destroy_device();
   bool submit_audio_data(const std::vector<uint8_t> &data);
   inline bool submit_audio_data(const std::vector<int16_t> &data) {
     return submit_audio_data(std::vector<uint8_t>(
@@ -117,6 +118,8 @@ private:
   void close();
 
   HANDLE _hub_handle = INVALID_HANDLE_VALUE;
+  HANDLE _device_handle = INVALID_HANDLE_VALUE;
+  HANDLE _unknown_handle = INVALID_HANDLE_VALUE;
   uint32_t _device_id = 0;
   HANDLE _control_wait_event = nullptr;
   HANDLE _cancelled_wait_event = nullptr;

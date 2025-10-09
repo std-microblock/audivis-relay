@@ -1,7 +1,6 @@
 #include "parsec-vusb-api.h"
 #include <print>
 #include <string>
-#include <system_error>
 
 #include <setupapi.h>
 #include <windows.h>
@@ -13,6 +12,7 @@ constexpr DWORD IOCTL_VIRTUAL_USB_DEVICE_CREATE = 0x2ae804;
 constexpr DWORD IOCTL_CONFIGURE_ENDPOINTS = 0x2aa808;
 constexpr DWORD IOCTL_CONFIGURE_ENDPOINT_TYPES = 0x2aa81c;
 constexpr DWORD IOCTL_PLUG_IN_DEVICE = 0x2aac04;
+constexpr DWORD IOCTL_UNPLUG_DEVICE = 0x2aac08;
 constexpr DWORD IOCTL_QUERY_MEDIA = 0x2af014;
 constexpr DWORD IOCTL_SUBMIT_AUDIO = 0x2ab018;
 
@@ -202,6 +202,8 @@ VirtualUSBDevice::VirtualUSBDevice(
   vusb_ioctl_in_out(_hub_handle, IOCTL_VIRTUAL_USB_DEVICE_CREATE, buffer);
 
   _device_id = *reinterpret_cast<uint32_t *>(buffer.data() + 4);
+  _device_handle = *reinterpret_cast<HANDLE *>(buffer.data() + 4);
+  _unknown_handle = *reinterpret_cast<HANDLE *>(buffer.data() + 12);
 
   wchar_t event_name[MAX_PATH];
   swprintf_s(event_name, MAX_PATH,
@@ -249,6 +251,25 @@ VirtualUSBDevice::operator=(VirtualUSBDevice &&other) noexcept {
     other._cancelled_wait_event = nullptr;
   }
   return *this;
+}
+
+void VirtualUSBDevice::destroy_device() {
+  if (_device_handle == INVALID_HANDLE_VALUE || _device_id == 0) {
+    return;
+  }
+
+  std::vector<uint8_t> buffer(8);
+  write_to_buffer(buffer, 0, static_cast<uint32_t>(8));
+  write_to_buffer(buffer, 4, _device_id);
+
+  vusb_ioctl(_hub_handle, IOCTL_UNPLUG_DEVICE, buffer);
+
+  SetEvent(_device_handle);
+  CloseHandle(_device_handle);
+  CloseHandle(_unknown_handle);
+
+  _device_handle = INVALID_HANDLE_VALUE;
+  _device_id = 0;
 }
 
 void VirtualUSBDevice::close() {
